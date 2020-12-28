@@ -7,11 +7,15 @@
 """
 import pandas as pd
 from mediawiki import MediaWiki
+import json
 wikipedia = MediaWiki()
+
+with open('F:/Paper/2015-measuring_prerequisite_relations_among_concepts/Data/EQUAL_backlinks/geometry.json', 'r') as f:
+  backlinks_dict = json.load(fp=f)
 
 def read_Data(url):
     '''
-    读取Excel的数据，返回A、B列的概念
+      读取Excel的数据，返回A、B列的概念
     I：
     -----
     url：文件地址
@@ -25,6 +29,8 @@ def read_Data(url):
     h = df['B'].tolist()
     return g,h
 
+# 避免重复计算的字典
+allConcept_links_dict = {}
 
 def RefD_left(A, B):
     '''
@@ -35,86 +41,85 @@ def RefD_left(A, B):
     B：B概念
     输出：
     ——————
-    sum_l：左半边的值
+    sum_l：RefD左半部分的值
 
     '''
-    p = wikipedia.page(A)
-    w_ci_A_list =p.backlinks   # weights the importance of ci to A;
+    #p = wikipedia.page(A)
+    w_ci_A_list = eval(backlinks_dict[A])  # weights the importance of ci to A;
     fm = len(w_ci_A_list)
     fz = 0
     for element in w_ci_A_list:
-        # 寻找R(ci,A)中的frontlinks
-        try:
-            p1 = wikipedia.page(element,auto_suggest=False)
-        except:
-            topics = wikipedia.search(element)
-            print(str(i) + " may refer to: ")
-            for i, topic in enumerate(topics):
-                print(i, topic)
-            choice = int(input("Enter a choice: "))
-            assert choice in range(len(topics))
-            p1 = wikipedia.page(topics[choice])
-        A_outlinks_list = p1.links
-        A_outlinks_set = set(A_outlinks_list)
-        if(B in A_outlinks_set):
-            fz += 1
+        if(element in allConcept_links_dict.keys()):
+            A_outlinks_list = eval(allConcept_links_dict[element])
+            A_outlinks_set = set(A_outlinks_list)
+            if (B in A_outlinks_set):
+                fz += 1
+        else:
+            # 寻找R(ci,A)中的outlinks
+            try:
+                p1 = wikipedia.page(element)
+            except:
+                p1 = wikipedia.page('China')
+            A_outlinks_list = p1.links
+            allConcept_links_dict[element] = str(A_outlinks_list)
+            A_outlinks_set = set(A_outlinks_list)
+            if (B in A_outlinks_set):
+                fz += 1
 
-    sum_l = fz/fm
-    print(sum_l)
-    return sum_l
+    if (fm == 0):
+        return 0
+    else:
+        return fz / fm
 
 
 def RefD_right(A, B):
     '''
-        计算RefD公式的左半部分
+        计算RefD公式的右半部分
     输入：
     ——————
     A：A概念
     B：B概念
     输出：
     ——————
-    sum_r：右半边半边的值
+    sum_r：RefD右半部分的值
     '''
 
-    p = wikipedia.page(B)
-    w_ci_B_list = p.backlinks  # weights the importance of ci to B;
+    #p = wikipedia.page(B)
+    w_ci_B_list = eval(backlinks_dict[B])  # weights the importance of ci to B;
     fm = len(w_ci_B_list)
     fz = 0
     for element in w_ci_B_list:
-        # 寻找R(ci,A)中的frontlinks
-        try:
-            p1 = wikipedia.page(element,auto_suggest=False)
-        except:
-            topics = wikipedia.search(element)
-            print(str(i) + " may refer to: ")
-            for i, topic in enumerate(topics):
-                print(i, topic)
-            choice = int(input("Enter a choice: "))
-            assert choice in range(len(topics))
-            p1 = wikipedia.page(topics[choice])
-        B_outlinks_list = p1.links   # w(ci to B) and ci's links
-        B_outlinks_set = set(B_outlinks_list)
-        if (A in B_outlinks_set):  # whether ci's links include A
-            fz += 1
+        if (element in allConcept_links_dict.keys()):
+            B_outlinks_list = eval(allConcept_links_dict[element])
+            B_outlinks_set = set(B_outlinks_list)
+            if (A in B_outlinks_set):
+                fz += 1
+        else:
+            # 寻找R(ci,A)中的outlinks
+            try:
+                p1 = wikipedia.page(element)
+            except:
+                p1 = wikipedia.page('China')
+            B_outlinks_list = p1.links
+            allConcept_links_dict[element] = str(B_outlinks_list)  #backlinks_element的links
+            B_outlinks_set = set(B_outlinks_list)
+            if (A in B_outlinks_set):
+                fz += 1
 
-    sum_r = fz / fm
-    print(sum_r)
-    return sum_r
+    if (fm == 0):
+        return 0
+    else:
+        return fz / fm
 
 if __name__ == '__main__':
-    url1 = 'F:/Paper/2015-measuring_prerequisite_relations_among_concepts/Data/data_mining.xlsx'
+    url1 = 'F:/Paper/2015-measuring_prerequisite_relations_among_concepts/Data/geometry.xlsx'
     g,h = read_Data(url1)
+    count = 0
     for i, j in enumerate(h):
-        A = g[i]  # A概念
+        A = g[i]  # A学习资源顺序
         B = j  # B概念
-    # A = 'DBSCAN'
-    # B = 'Arithmetic mean'
+
+        count += 1
         sum_l = RefD_left(A, B)
         sum_r = RefD_right(A, B)
-        print(sum_l-sum_r)
-
-    # B = 'DBSCAN'
-    # A = 'Arithmetic mean'
-    # sum_l = RefD_left(A, B)
-    # sum_r = RefD_right(A, B)
-    # print(sum_l - sum_r)
+        print(count,sum_l-sum_r)
